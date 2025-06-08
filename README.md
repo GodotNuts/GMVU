@@ -1,3 +1,5 @@
+# Copyright (c) 2025-present Diurnal Productions, LLC
+
 # GMVU
 A DSL for GDScript mimicking SwiftUI and other model-view-update-style languages
 
@@ -18,7 +20,7 @@ I recommend "tearing away" the Script Editor when working with this plugin. In o
 If you're going to apply your own scripts with the script_path() modifier, it is best to handle connections to signals directly in your _ready() function. That way, when the generator blows away your view, it will retain those connections; otherwise, anything connected in the editor will simply be erased, and you'll have to do them all over again.
 
 # Testing
-I'm still testing this library out! I've recently added the following, for which I do not have tests:
+I'm still testing this library out! I've recently added the following, for which I do not have tests (if these aren't useful, please let me know in Issues):
 1. if_else - allows conditional branching of views based on the current context. Requires a callable that accepts the current CustomControl as the main argument that is passed into it. Let me know in Issues if you want this to be a top-level function as well.
 2. for_each - allows iteration over a list of items. Requires a callable that accepts a value from the Array passed in, and the current CustomControl. Let me know in Issues if you want this to be a top-level function as well.
 
