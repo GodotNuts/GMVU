@@ -1,9 +1,11 @@
+# Copyright (c) 2025-present Diurnal Productions, LLC
 @tool
 class_name FluentGenerator
 extends EditorScript
 
-enum BindingType { OneTime, OneWay, TwoWay }
+#enum BindingType { OneTime, OneWay, TwoWay }
 
+#region Constants
 const IGNORE = Control.MouseFilter.MOUSE_FILTER_IGNORE
 const PASS = Control.MouseFilter.MOUSE_FILTER_PASS
 const STOP = Control.MouseFilter.MOUSE_FILTER_STOP
@@ -44,21 +46,30 @@ const BOTTOM_WIDE = Control.LayoutPreset.PRESET_BOTTOM_WIDE
 const VCENTER_WIDE = Control.LayoutPreset.PRESET_VCENTER_WIDE
 const HCENTER_WIDE = Control.LayoutPreset.PRESET_HCENTER_WIDE
 const FULL_RECT = Control.LayoutPreset.PRESET_FULL_RECT
+const GROW_BOTH = Control.GrowDirection.GROW_DIRECTION_BOTH
+const GROW_BEGIN = Control.GrowDirection.GROW_DIRECTION_BEGIN
+const GROW_END = Control.GrowDirection.GROW_DIRECTION_END
+#endregion Constants
 
 func view() -> CustomControl:
 	return CustomControl.new(Control.new())
 
 func export_path() -> String:
-	return "res://generated_views/generated_file"	
+	return "res://generated_views/generated_file"
 
 class CustomControl extends RefCounted:
 	var node_name: String
+	var s_path: String
 	var node: Control
 	var child_array: Array = []
 	#var bindings: Array[ControlBinding] = []
 
 	func _init(base_node: Control):
 		node = base_node
+
+	func script_path(path: String) -> CustomControl:
+		s_path = path
+		return self
 
 	func named(name: String) -> CustomControl:
 		node_name = name
@@ -123,7 +134,20 @@ class CustomControl extends RefCounted:
 	func v_size(value: Control.SizeFlags) -> CustomControl:
 		node.size_flags_vertical = value
 		return self
-
+		
+	func group(value: String) -> CustomControl:
+		node.add_to_group(value, true) # In theory, this should never have to remove a node from a group, but easy to add if desired.			
+		return self
+	
+	func if_else(condition: Callable, true_value: CustomControl, false_value: CustomControl) -> CustomControl:
+		return true_value if condition.call(self) else false_value
+	
+	func for_each(value: Array, callable: Callable) -> CustomControl:
+		for val in value:
+			callable.call(val, self)
+			
+		return self
+	
 	#func bind(property_name: String, binding_type: BindingType, data_context: Variant, data_property_name: String):
 		#bindings.push_back(ControlBinding.new(property_name, binding_type, data_context, data_property_name))
 		#return self
@@ -137,11 +161,17 @@ class CustomControl extends RefCounted:
 				if not ch.node_name.is_empty():
 					built_child.name = ch.node_name
 				node.add_child(built_child, true)
+				if not ch.s_path.is_empty():
+					built_child.set_script(load(ch.s_path))
 			else:
 				push_error("Children must inherit CustomControl")
 		
 		if not node_name.is_empty():
 			node.name = node_name
+		
+		if not s_path.is_empty():
+			node.set_script(load(s_path))
+	
 		return node
 
 class CustomLabel extends CustomControl:

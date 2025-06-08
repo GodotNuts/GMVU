@@ -1,13 +1,15 @@
-[gd_scene format=3 uid="uid://db3o7f2u41654"]
+[gd_scene load_steps=3 format=3 uid="uid://db3o7f2u41654"]
+
+[ext_resource type="Script" uid="uid://dsq662y5v7ahb" path="res://example/main_menu.gd" id="1_mmqjy"]
+[ext_resource type="Script" uid="uid://f0jabyrbf7hk" path="res://example/player_name_input.gd" id="2_adrb5"]
 
 [node name="UI" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
 mouse_filter = 2
+script = ExtResource("1_mmqjy")
 
 [node name="MenuItems" type="VBoxContainer" parent="."]
 layout_mode = 0
@@ -26,6 +28,7 @@ custom_minimum_size = Vector2(200, 20)
 layout_mode = 2
 size_flags_horizontal = 4
 placeholder_text = "Player name"
+script = ExtResource("2_adrb5")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="MenuItems"]
 layout_mode = 2
