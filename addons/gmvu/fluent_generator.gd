@@ -49,6 +49,22 @@ const FULL_RECT = Control.LayoutPreset.PRESET_FULL_RECT
 const GROW_BOTH = Control.GrowDirection.GROW_DIRECTION_BOTH
 const GROW_BEGIN = Control.GrowDirection.GROW_DIRECTION_BEGIN
 const GROW_END = Control.GrowDirection.GROW_DIRECTION_END
+const TEXTURE_FIT_HEIGHT = TextureRect.EXPAND_FIT_HEIGHT
+const TEXTURE_FIT_WIDTH = TextureRect.EXPAND_FIT_WIDTH
+const TEXTURE_KEEP_SIZE = TextureRect.EXPAND_KEEP_SIZE
+const TEXTURE_IGNORE_SIZE = TextureRect.EXPAND_IGNORE_SIZE
+const TEXTURE_FIT_HEIGHT_PROP = TextureRect.EXPAND_FIT_HEIGHT_PROPORTIONAL
+const TEXTURE_FIT_WIDTH_PROP = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+const TEXTURE_STRETCH_KEEP = TextureRect.StretchMode.STRETCH_KEEP
+const TEXTURE_STRETCH_TILE = TextureRect.StretchMode.STRETCH_TILE
+const TEXTURE_STRETCH_KEEP_CENTERED = TextureRect.StretchMode.STRETCH_KEEP_CENTERED
+const TEXTURE_STRETCH_SCALE = TextureRect.StretchMode.STRETCH_SCALE
+const TEXTURE_STRETCH_KEEP_ASPECT = TextureRect.StretchMode.STRETCH_KEEP_ASPECT
+const TEXTURE_STRETCH_KEEP_ASPECT_CENT = TextureRect.StretchMode.STRETCH_KEEP_ASPECT_CENTERED
+const TEXTURE_STRETCH_KEEP_ASPECT_COV = TextureRect.StretchMode.STRETCH_KEEP_ASPECT_COVERED
+const STYLEBOX_TEXTURE_STRETCH = StyleBoxTexture.AxisStretchMode.AXIS_STRETCH_MODE_STRETCH
+const STYLEBOX_TEXTURE_TILE = StyleBoxTexture.AxisStretchMode.AXIS_STRETCH_MODE_TILE
+const STYLEBOX_TEXTURE_TILE_FIT = StyleBoxTexture.AxisStretchMode.AXIS_STRETCH_MODE_TILE_FIT
 #endregion Constants
 
 func view() -> CustomControl:
@@ -63,12 +79,36 @@ class CustomControl extends RefCounted:
 	var node: Control
 	var child_array: Array = []
 	#var bindings: Array[ControlBinding] = []
-
+	
 	func _init(base_node: Control):
 		node = base_node
 
 	func script_path(path: String) -> CustomControl:
 		s_path = path
+		return self
+
+	func top_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_top = node_path
+		return self
+
+	func right_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_right = node_path
+		return self
+
+	func bottom_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_bottom = node_path
+		return self
+
+	func left_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_left = node_path
+		return self
+
+	func prev_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_prev = node_path
+		return self
+
+	func next_focus(node_path: NodePath) -> CustomControl:
+		node.focus_neighbor_next = node_path
 		return self
 
 	func named(name: String) -> CustomControl:
@@ -80,11 +120,15 @@ class CustomControl extends RefCounted:
 		return self
 	
 	func children(value: Array) -> CustomControl:
-		child_array = value
+		child_array.append_array(value)
 		return self
 
 	func mouse_filter(value: Control.MouseFilter) -> CustomControl:
 		node.mouse_filter = value
+		return self
+	
+	func stretch_ratio(amount: float) -> CustomControl:
+		node.size_flags_stretch_ratio = amount
 		return self
 	
 	func unique(value: bool) -> CustomControl:
@@ -97,6 +141,15 @@ class CustomControl extends RefCounted:
 		
 	func grow_v(value: Control.GrowDirection) -> CustomControl:
 		node.grow_vertical = value
+		return self
+	
+	func embed(control) -> CustomControl:
+		if control is CustomControl:
+			child_array.push_back(control)
+		elif control is FluentGenerator:
+			child_array.push_back(control.view())
+		elif control is Control:
+			child_array.push_back(CustomControl.new(control))
 		return self
 	
 	func anchors(value) -> CustomControl:
@@ -139,12 +192,11 @@ class CustomControl extends RefCounted:
 		node.add_to_group(value, true) # In theory, this should never have to remove a node from a group, but easy to add if desired.			
 		return self
 	
-	func if_else(condition: Callable, true_value: CustomControl, false_value: CustomControl) -> CustomControl:
-		return true_value if condition.call(self) else false_value
-	
 	func for_each(value: Array, callable: Callable) -> CustomControl:
+		var idx = 0
 		for val in value:
-			callable.call(val, self)
+			callable.call(idx, val)
+			idx += 1
 			
 		return self
 	
@@ -153,6 +205,20 @@ class CustomControl extends RefCounted:
 		#return self
 
 	func build() -> Control:	
+		# Preprocess the arrays contained in the child array, if any exist
+		var new_child_array = []
+		for child in child_array:
+			if child is CustomArray:
+				new_child_array.append_array(child.values)
+			elif child is CustomControl:
+				new_child_array.append(child)
+			elif child is Control:
+				new_child_array.append(CustomControl.new(child))
+			else:
+				push_error("Unknown type when building: ", child.get_class())
+		
+		child_array = new_child_array
+		
 		for child in child_array:
 			var ch = child as CustomControl
 			
@@ -173,6 +239,12 @@ class CustomControl extends RefCounted:
 			node.set_script(load(s_path))
 	
 		return node
+
+class CustomArray extends CustomControl:
+	var values: Array[CustomControl] = []
+	
+	func _init():
+		super(Control.new())
 
 class CustomLabel extends CustomControl:
 	func _init():
@@ -214,9 +286,9 @@ class CustomLineEdit extends CustomControl:
 				
 		return self
 	
-	func text_changed(value: Callable) -> CustomLineEdit:
-		node.text_changed.connect(value)
-		return self
+	#func text_changed(value: Callable) -> CustomLineEdit:
+		#node.text_changed.connect(value)
+		#return self
 
 class CustomNinePatchRect extends CustomControl:
 	func _init():
@@ -534,7 +606,7 @@ class CustomBaseButton extends CustomControl:
 	#func pressed(value: Callable) -> CustomBaseButton:
 		#node.pressed.connect(value)
 		#return self
-		
+		#
 	#func toggled(value: Callable) -> CustomBaseButton:
 		#node.toggled.connect(value)
 		#return self
@@ -593,16 +665,224 @@ class CustomTextureButton extends CustomBaseButton:
 		node.texture_click_mask = value
 		return self
 	
-	func textures(value: Dictionary[String, Texture2D]) -> CustomTextureButton:
+	func textures(value: Dictionary[String, CustomTexture2D]) -> CustomTextureButton:
 		for state in value:
 			if node.has(state):
-				node[state] = value[state]
+				node[state] = value[state].build()
 			else:
 				push_error("Missing texture with name %s" % state)
 				
 		return self
 
+class CustomResource extends Resource:
+	var _res: Resource
+	
+	func _init(res: Resource = Resource.new()):
+		_res = res
+		
+	func build() -> Resource:
+		return _res
+
+class CustomTexture2D extends CustomResource:
+	func _init(texture: Texture2D):
+		super(texture)
+	
+class CustomStyleBox extends CustomResource:
+	func _init(style_box: StyleBox):
+		super(style_box)
+
+class CustomFlatStyleBox extends CustomStyleBox:
+	func _init():
+		super(StyleBoxFlat.new())
+	
+	func bg_color(color: Color) -> CustomStyleBox:
+		_res.bg_color = color
+		return self
+		
+	func border_color(color: Color) -> CustomStyleBox:
+		_res.border_color = color
+		return self
+
+	func corner_detail(value: int) -> CustomStyleBox:
+		_res.corner_detail = value
+		return self
+
+	func borders(widths: Array[int]) -> CustomStyleBox:
+		var result_widths = [0, 0, 0, 0]
+		if widths.size() == 1:
+			result_widths[0] = widths[0]
+			result_widths[1] = widths[0]
+			result_widths[2] = widths[0]
+			result_widths[3] = widths[0]
+		elif widths.size() == 2:
+			result_widths[0] = widths[0]
+			result_widths[1] = widths[1]
+			result_widths[2] = widths[0]
+			result_widths[3] = widths[1]
+		elif widths.size() == 4:
+			result_widths[0] = widths[0]
+			result_widths[1] = widths[1]
+			result_widths[2] = widths[2]
+			result_widths[3] = widths[3]
+		
+		var idx = 0
+		for side in ["top", "right", "bottom", "left"]:
+			_res.set("border_width_%s" % side, result_widths[idx])
+			idx += 1
+		
+		return self	
+			
+	func radii(corner_radii: Array[int]) -> CustomStyleBox:
+		if corner_radii.size() != 4:
+			push_error("Radii can only be called with exactly 4 values, starting at top_right and going clockwise")
+			return self
+		
+		var idx = 0
+		for side in ["top_right", "bottom_right", "bottom_left", "top_left"]:
+			_res.set("corner_radius_%s" % side, corner_radii[idx])
+			idx += 1
+		
+		return self
+
+	func expand_margins(margins: Array[float]) -> CustomStyleBox:
+		var result_margins = [0, 0, 0, 0]
+		if margins.size() == 1:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[0]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[0]
+		elif margins.size() == 2:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[1]
+		elif margins.size() == 4:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[2]
+			result_margins[3] = margins[3]
+		
+		var idx = 0
+		for side in ["top", "right", "bottom", "left"]:
+			_res.set("expand_margin_%s" % side, result_margins[idx])
+			idx += 1
+		
+		return self	
+		
+class CustomEmptyStyleBox extends CustomStyleBox:
+	func _init():
+		super(StyleBoxEmpty.new())
+		
+class CustomLineStyleBox extends CustomStyleBox:
+	func _init():
+		super(StyleBoxLine.new())
+	
+	func color(color: Color) -> CustomStyleBox:
+		_res.color = color
+		return self
+
+	func thickness(value: int) -> CustomStyleBox:
+		_res.thickness = value
+		return self
+	
+	func vertical(value: bool) -> CustomStyleBox:
+		_res.vertical = value
+		return self
+		
+		
+class CustomTextureStyleBox extends CustomStyleBox:
+	func _init():
+		super(StyleBoxTexture.new())
+		
+	func texture(value: Texture2D) -> CustomStyleBox:
+		_res.texture = value
+		return self
+
+	func expand_margins(margins: Array[float]) -> CustomStyleBox:
+		var result_margins = [0, 0, 0, 0]
+		if margins.size() == 1:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[0]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[0]
+		elif margins.size() == 2:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[1]
+		elif margins.size() == 4:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[2]
+			result_margins[3] = margins[3]
+		
+		var idx = 0
+		for side in ["top", "right", "bottom", "left"]:
+			_res.set("expand_margin_%s" % side, result_margins[idx])
+			idx += 1
+		
+		return self
+
+	func texture_margins(margins: Array[float]) -> CustomStyleBox:
+		var result_margins = [0, 0, 0, 0]
+		if margins.size() == 1:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[0]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[0]
+		elif margins.size() == 2:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[0]
+			result_margins[3] = margins[1]
+		elif margins.size() == 4:
+			result_margins[0] = margins[0]
+			result_margins[1] = margins[1]
+			result_margins[2] = margins[2]
+			result_margins[3] = margins[3]
+		
+		var idx = 0
+		for side in ["top", "right", "bottom", "left"]:
+			_res.set("texture_margin_%s" % side, result_margins[idx])
+			idx += 1
+		
+		return self
+	
+	func region_rect(value: Rect2) -> CustomStyleBox:
+		_res.region_rect = value
+		return self
+	
+	func h_stretch(value: StyleBoxTexture.AxisStretchMode) -> CustomStyleBox:
+		_res.axis_stretch_horizontal = value
+		return self
+
+	func v_stretch(value: StyleBoxTexture.AxisStretchMode) -> CustomStyleBox:
+		_res.axis_stretch_vertical = value
+		return self
+	
 # Factory functions
+func resource(from_path: String) -> CustomResource:
+	return CustomResource.new(load(from_path))
+
+func texture2D(from_path: String) -> CustomTexture2D:
+	var text = PortableCompressedTexture2D.new()
+	var image = Image.load_from_file(from_path)
+	text.create_from_image(image, PortableCompressedTexture2D.COMPRESSION_MODE_LOSSLESS)
+	var result = CustomTexture2D.new(text)
+	return result
+
+func stylebox_empty() -> CustomStyleBox:
+	return CustomEmptyStyleBox.new()
+
+func stylebox_line() -> CustomStyleBox:
+	return CustomLineStyleBox.new()
+
+func stylebox_flat() -> CustomStyleBox:
+	return CustomFlatStyleBox.new()
+
+func stylebox_texture(texture_path: String) -> CustomStyleBox:
+	return CustomTextureStyleBox.new().texture(texture2D(texture_path).build())
+
 func label(text_value := "") -> CustomLabel:
 	return CustomLabel.new().text(text_value)
 
@@ -673,14 +953,38 @@ func button() -> CustomButton:
 func texture_button() -> CustomTextureButton:
 	return CustomTextureButton.new()
 
-func control() -> CustomControl:
-	return CustomControl.new(Control.new()).mouse_filter(IGNORE)
+func control(root = Control.new()) -> CustomControl:
+	if root is FluentGenerator:
+		return root.view()
+		
+	return CustomControl.new(root)
+
+func for_each(value: Array, callable: Callable) -> CustomArray:
+	var array = CustomArray.new()
+	var idx = 0
+	for val in value:
+		var result = callable.call(idx, val)
+		if not result is CustomControl:
+			push_error("Callable must return a CustomControl in for_each")
+			return array
+		
+		array.values.push_back(result)
+		idx += 1
+		
+	return array
+
+func spacer(stretch_ratio: float = 1.0) -> CustomControl:
+	return control().mouse_filter(IGNORE).h_size(EXPAND_FILL).v_size(EXPAND_FILL).named("Spacer").stretch_ratio(stretch_ratio)
 
 func _run() -> void:
 	var root_control = view()
 	var filepath = export_path() + ".tscn"
 	
 	var view = root_control.build()
+	if view is CustomArray:
+		push_error("for_each cannot be at the root of a view; try wrapping it in a control first. Returning without completing...")
+		return
+
 	_set_owners(view, view)
 	var scene = PackedScene.new()
 	if scene.pack(view) == OK:
@@ -701,8 +1005,8 @@ func _set_owners(ctrl: Node, owner: Node) -> void:
 	#var _ctx: Variant
 	#var _property: String
 	#
-	#func _init(property_name: String, binding_type: BindingType, data_context: Variant, data_property_name: String):
-		#_prop_name = property_name
+	#func _init(view_property_name: String, binding_type: BindingType, data_context: Variant, data_property_name: String):
+		#_prop_name = view_property_name
 		#_type = binding_type
 		#_property = data_property_name
 		#_ctx = data_context

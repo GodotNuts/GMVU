@@ -1,21 +1,37 @@
-[gd_scene load_steps=3 format=3 uid="uid://db3o7f2u41654"]
+[gd_scene load_steps=4 format=3 uid="uid://db3o7f2u41654"]
 
-[ext_resource type="Script" uid="uid://dsq662y5v7ahb" path="res://example/main_menu.gd" id="1_mmqjy"]
-[ext_resource type="Script" uid="uid://f0jabyrbf7hk" path="res://example/player_name_input.gd" id="2_adrb5"]
+[ext_resource type="Script" uid="uid://dsq662y5v7ahb" path="res://example/main_menu.gd" id="1_adrb5"]
+[ext_resource type="Script" uid="uid://dqdmeor0063wy" path="res://example/custom_unrelated_control.gd" id="2_lvcrm"]
+[ext_resource type="Script" uid="uid://f0jabyrbf7hk" path="res://example/player_name_input.gd" id="2_opv1q"]
 
 [node name="UI" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-mouse_filter = 2
-script = ExtResource("1_mmqjy")
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_adrb5")
+
+[node name="HBoxContainer" type="HBoxContainer" parent="."]
+layout_mode = 0
+anchor_right = 1.0
+alignment = 1
+
+[node name="Control" type="Control" parent="HBoxContainer"]
+layout_mode = 2
+script = ExtResource("2_lvcrm")
+
+[node name="SomeButton" type="Button" parent="HBoxContainer"]
+layout_mode = 2
+text = "Some Button"
 
 [node name="MenuItems" type="VBoxContainer" parent="."]
 layout_mode = 0
 anchor_left = 0.5
+anchor_top = 0.5
 anchor_right = 0.5
-anchor_bottom = 1.0
+anchor_bottom = 0.5
 grow_horizontal = 2
 alignment = 1
 
@@ -28,24 +44,42 @@ custom_minimum_size = Vector2(200, 20)
 layout_mode = 2
 size_flags_horizontal = 4
 placeholder_text = "Player name"
-script = ExtResource("2_adrb5")
+script = ExtResource("2_opv1q")
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MenuItems"]
+[node name="Buttons" type="VBoxContainer" parent="MenuItems"]
+custom_minimum_size = Vector2(100, 120)
 layout_mode = 2
-alignment = 1
+size_flags_vertical = 0
 
-[node name="Control" type="Control" parent="MenuItems/HBoxContainer"]
+[node name="Spacer" type="Control" parent="MenuItems/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.1
 mouse_filter = 2
 
-[node name="GoButton" type="Button" parent="MenuItems/HBoxContainer"]
+[node name="GoButton" type="Button" parent="MenuItems/Buttons"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
 text = "Go!"
 
-[node name="Control2" type="Control" parent="MenuItems/HBoxContainer"]
+[node name="Spacer2" type="Control" parent="MenuItems/Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.1
+mouse_filter = 2
+
+[node name="BackButton" type="Button" parent="MenuItems/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+text = "Back"
+
+[node name="Spacer3" type="Control" parent="MenuItems/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.1
 mouse_filter = 2

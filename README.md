@@ -21,15 +21,17 @@ If you're going to apply your own scripts with the script_path() modifier, it is
 
 # Testing
 I'm still testing this library out! I've recently added the following, for which I do not have tests (if these aren't useful, please let me know in Issues):
-1. if_else - allows conditional branching of views based on the current context. Requires a callable that accepts the current CustomControl as the main argument that is passed into it. Let me know in Issues if you want this to be a top-level function as well.
-2. for_each - allows iteration over a list of items. Requires a callable that accepts a value from the Array passed in, and the current CustomControl. Let me know in Issues if you want this to be a top-level function as well.
+1. StyleBoxes - helpers exist to create all types and manipulate them
+2. Textures - helpers exist to create texture2Ds, but are always the same type with the same settings
 
 # Future
 I'm considering the following features, and am intending to try to implement them. Let me know how valuable they would be to you, if at all, in Issues.
 1. Script generation - currently, it supports pointing to a script. I'd like to allow it to generate scripts and useful stuff on them such as variables and functions.
 2. Signals - In addition to the previous being allowed to generate signals, I'd like to be able to define signal connections within the view hierarchy. This might not be possible yet, or it might require a string value only for the name of the function to connect to - let me know in Issues if you have preferences on this.
 3. More, different Control nodes and support for them
-4. StyleBox and other resource creation simplification in a similar style to this library
+4. More, different types of Textures if they would be useful to people
+5. More, different types of resources generally
 
 # History
-Jun. 8, 2025 - Initial creation of fluent_generator.gd and MVU-style syntax
+Jun. 11, 2025 - Added CustomResources for Textures and StyleBoxes and derived resource types, Spacer top-level function to create spacers in your layouts easily, CustomArray, for_each top-level and child-level modifier, embedding generators, Controls, or CustomControls, more tests
+Jun. 8, 2025  - Initial creation of fluent_generator.gd and MVU-style syntax
