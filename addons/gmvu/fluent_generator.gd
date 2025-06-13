@@ -3,8 +3,6 @@
 class_name FluentGenerator
 extends EditorScript
 
-#enum BindingType { OneTime, OneWay, TwoWay }
-
 #region Constants
 const IGNORE = Control.MouseFilter.MOUSE_FILTER_IGNORE
 const PASS = Control.MouseFilter.MOUSE_FILTER_PASS
@@ -73,11 +71,49 @@ func view() -> CustomControl:
 func export_path() -> String:
 	return "res://generated_views/generated_file"
 
+func raw_code(value: String) -> Variant:
+	return value
+
+func _run() -> void:
+	build()
+
+func build() -> Control:
+	var root_control = view()
+	var filepath = export_path() + ".tscn"
+	
+	var view = root_control.build()
+	if view is CustomArray:
+		push_error("for_each cannot be at the root of a view; try wrapping it in a control first. Returning without completing...")
+		return
+
+	_set_owners(view, view)
+	var scene = PackedScene.new()
+	if scene.pack(view) == OK:
+		var error = ResourceSaver.save(scene, filepath)
+		if error != OK:
+			push_error("An error occurred while saving the scene to disk: %s." % error)
+		else:
+			EditorInterface.reload_scene_from_path(filepath)
+		
+	return view
+
+func _set_owners(ctrl: Node, owner: Node) -> void:
+	for child in ctrl.get_children():
+		child.owner = owner
+		_set_owners(child, owner)
+
 class CustomControl extends RefCounted:
 	var node_name: String
 	var s_path: String
 	var node: Control
 	var child_array: Array = []
+	var callables: Array = []
+	var signals: Dictionary[String, Array] = { }
+	var variables: Dictionary[String, Dictionary] = { }
+	var constants: Dictionary[String, Variant] = { }
+	var exported_variables: Dictionary[String, Dictionary] = { }
+	var onready_variables: Dictionary[String, Dictionary] = { }
+	
 	#var bindings: Array[ControlBinding] = []
 	
 	func _init(base_node: Control):
@@ -85,6 +121,30 @@ class CustomControl extends RefCounted:
 
 	func script_path(path: String) -> CustomControl:
 		s_path = path
+		return self
+	
+	func add_signal(signal_name: String, signal_args: Array[String]) -> CustomControl:
+		signals[signal_name] = signal_args
+		return self
+		
+	func add_variable(var_name: String, var_type: Variant.Type, default_value: Variant = null) -> CustomControl:
+		variables[var_name] = { name = var_name, type = var_type, value = default_value }
+		return self
+	
+	func add_constant(var_name: String, value: Variant) -> CustomControl:
+		constants[var_name] = value
+		return self
+
+	func add_exported(var_name: String, var_type: Variant.Type, default_value: Variant = null) -> CustomControl:
+		exported_variables[var_name] = { name = var_name, type = var_type, value = default_value }
+		return self
+	
+	func add_onready(var_name: String, var_type: Variant.Type, value: Variant) -> CustomControl:
+		onready_variables[var_name] = { name = var_name, type = var_type, value = value }
+		return self
+	
+	func hook(callable: Callable, onto_signal: String) -> CustomControl:
+		callables.push_back({ function = callable, sig = onto_signal })
 		return self
 
 	func top_focus(node_path: NodePath) -> CustomControl:
@@ -147,7 +207,7 @@ class CustomControl extends RefCounted:
 		if control is CustomControl:
 			child_array.push_back(control)
 		elif control is FluentGenerator:
-			child_array.push_back(control.view())
+			child_array.push_back(control)
 		elif control is Control:
 			child_array.push_back(CustomControl.new(control))
 		return self
@@ -208,7 +268,9 @@ class CustomControl extends RefCounted:
 		# Preprocess the arrays contained in the child array, if any exist
 		var new_child_array = []
 		for child in child_array:
-			if child is CustomArray:
+			if child is FluentGenerator:
+				new_child_array.append(child)
+			elif child is CustomArray:
 				new_child_array.append_array(child.values)
 			elif child is CustomControl:
 				new_child_array.append(child)
@@ -219,27 +281,176 @@ class CustomControl extends RefCounted:
 		
 		child_array = new_child_array
 		
-		for child in child_array:
-			var ch = child as CustomControl
-			
-			if ch:
-				var built_child = ch.build()
-				if not ch.node_name.is_empty():
-					built_child.name = ch.node_name
+		for child in child_array:			
+			if child is CustomControl:
+				var built_child = child.build()
+				if not child.node_name.is_empty():
+					built_child.name = child.node_name
 				node.add_child(built_child, true)
-				if not ch.s_path.is_empty():
-					built_child.set_script(load(ch.s_path))
+				if not child.s_path.is_empty():
+					if _must_generate(child):
+						_generate_script(child, built_child)
+
+					if FileAccess.file_exists(child.s_path):
+						built_child.set_script(load(child.s_path))
+					else:
+						push_error("script_path called on child but no script exists at location %s" % child.s_path)
+						return null
+			elif child is FluentGenerator:
+				var ctrl = child.build()
+				node.add_child(ctrl, true)
 			else:
 				push_error("Children must inherit CustomControl")
 		
 		if not node_name.is_empty():
 			node.name = node_name
-		
+				
 		if not s_path.is_empty():
+			if _must_generate(self):
+				_generate_script(self, node)
+			elif not FileAccess.file_exists(s_path):
+				push_error("Script did not exist at %s and could not be generated (yet)" % s_path)
 			node.set_script(load(s_path))
 	
 		return node
+	
+	func _must_generate(child: CustomControl) -> bool:
+		return not (child.callables.is_empty() and child.signals.is_empty() and child.constants.is_empty() and child.variables.is_empty() and child.exported_variables.is_empty() and child.onready_variables.is_empty())
+	
+	func _generate_script(ctrl: CustomControl, built_node: Control) -> void:
+		var script = GDScript.new()
+		script.source_code = "extends %s\n\n" % built_node.get_class()
+		
+		const READY_CODE = "func _ready() -> void:\n"
+		const CALLABLE_CONNECT_CODE = "\t%s.connect(%s)\n"
+		const NEW_METHOD_CODE = "%s\n"
+		const VARIABLE_CODE = "var %s: %s %s"
+		const VARIABLE_DEFAULT_VALUE_CODE = "= %s"
+		const CONSTANT_VARIABLE_CODE = "const %s = %s\n"
+		const SIGNAL_CODE = "signal %s"
+		const SIGNAL_ARGS_CODE = "(%s)"
+		
+		var previous_size = script.source_code.length()
+		
+		for sig in ctrl.signals:
+			var sig_def = SIGNAL_CODE % sig
+			if ctrl.signals[sig].size() > 0:
+				var arguments = []
+				for arg in ctrl.signals[sig]:
+					arguments.push_back(arg)
+			
+				var arg_str = ", ".join(PackedStringArray(arguments))
+				sig_def += SIGNAL_ARGS_CODE % arg_str
+			else:
+				sig_def += "()"
+			
+			script.source_code += sig_def
+			script.source_code += "\n"
+		
+		if previous_size != script.source_code.length():
+			script.source_code += "\n"
+			
+		previous_size = script.source_code.length()
+		
+		for con in ctrl.constants:
+			script.source_code += CONSTANT_VARIABLE_CODE % con
+		
+		if previous_size != script.source_code.length():
+			script.source_code += "\n"
+			
+		previous_size = script.source_code.length()
+		
+		for exp in ctrl.exported_variables:
+			var variable = ctrl.exported_variables[exp]
+			var exported_value = "@export %s" % VARIABLE_CODE % [variable.name, type_string(variable.type), VARIABLE_DEFAULT_VALUE_CODE % variable.default_value if variable.default_value else ""]
+			script.source_code += exported_value
+			script.source_code += "\n"
+		
+		if previous_size != script.source_code.length():
+			script.source_code += "\n"
+			
+		previous_size = script.source_code.length()
+		
+		for vari in ctrl.variables:
+			var variable = ctrl.variables[vari]
+			var var_val = VARIABLE_CODE % [variable.name, type_string(variable.type), VARIABLE_DEFAULT_VALUE_CODE % variable.value if variable.value else ""]
+			script.source_code += var_val
+			script.source_code += "\n"
+		
+		if previous_size != script.source_code.length():
+			script.source_code += "\n"
+			
+		previous_size = script.source_code.length()
+		
+		for onr in ctrl.onready_variables:
+			var variable = ctrl.onready_variables[onr]
+			script.source_code += "@onready %s" % VARIABLE_CODE % [variable.name, type_string(variable.type), VARIABLE_DEFAULT_VALUE_CODE % variable.value if variable.value else ""]
+			script.source_code += "\n"
+		
+		if previous_size != script.source_code.length():
+			script.source_code += "\n"
 
+		script.source_code += READY_CODE
+		
+		for callable in ctrl.callables:
+			script.source_code += CALLABLE_CONNECT_CODE % [callable.sig, callable.function.get_method()]
+		
+		script.source_code += "\n\n"
+		
+		for callable in ctrl.callables:
+			if callable.function:
+				var obj = callable.function.get_object()
+				if obj:
+					var scp = obj.get_script()
+					if scp.has_source_code():
+						var src = scp.source_code
+						var method = callable.function.get_method()
+						var method_idx = src.find("func %s" % method)
+						if method_idx != -1:
+							var new_line_idx = src.find("\n", method_idx)
+							var end_idx = -1
+							var range = range(method_idx, src.length())
+							for code_idx in range(method_idx, src.length()):
+								if src[code_idx] == "\n":
+									var next_char_idx = code_idx + 1
+									if next_char_idx < src.length():
+										var next_char = src[next_char_idx]
+										if next_char != "\t":
+											end_idx = next_char_idx
+											break
+									else:
+										end_idx = code_idx
+										
+							if end_idx != -1:
+								var method_str = src.substr(method_idx, end_idx - method_idx)
+								var sub_method = NEW_METHOD_CODE % method_str
+								
+								sub_method = _replace_ref("raw_code", sub_method)
+				
+								script.source_code += sub_method
+		
+		script.source_code += "\n\n"
+		
+		if FileAccess.file_exists(ctrl.s_path):
+			push_warning("Overwriting script at path %s" % ctrl.s_path)
+		
+		var result = ResourceSaver.save(script, ctrl.s_path)
+		if result != OK:
+			push_error("There was an error saving the script at path %s" % ctrl.s_path)
+	
+	func _replace_ref(ref: String, in_str: String) -> String:
+		var ref_id = "%s(\"" % ref
+		var ref_idx = in_str.find(ref_id)
+		const CLOSING_PAREN = "\")"
+		while ref_idx != -1:
+			var closing_paren = in_str.find(CLOSING_PAREN, ref_idx)
+			var ref_name = in_str.substr(ref_idx + ref_id.length(), closing_paren - ref_idx - ref_id.length())
+			in_str = in_str.replace(ref_id + ref_name + CLOSING_PAREN, ref_name)
+			ref_idx = in_str.find(ref_id, ref_idx)
+			
+		return in_str
+		
+		
 class CustomArray extends CustomControl:
 	var values: Array[CustomControl] = []
 	
@@ -953,10 +1164,7 @@ func button() -> CustomButton:
 func texture_button() -> CustomTextureButton:
 	return CustomTextureButton.new()
 
-func control(root = Control.new()) -> CustomControl:
-	if root is FluentGenerator:
-		return root.view()
-		
+func control(root: Control = Control.new()) -> CustomControl:
 	return CustomControl.new(root)
 
 func for_each(value: Array, callable: Callable) -> CustomArray:
@@ -976,37 +1184,20 @@ func for_each(value: Array, callable: Callable) -> CustomArray:
 func spacer(stretch_ratio: float = 1.0) -> CustomControl:
 	return control().mouse_filter(IGNORE).h_size(EXPAND_FILL).v_size(EXPAND_FILL).named("Spacer").stretch_ratio(stretch_ratio)
 
-func _run() -> void:
-	var root_control = view()
-	var filepath = export_path() + ".tscn"
-	
-	var view = root_control.build()
-	if view is CustomArray:
-		push_error("for_each cannot be at the root of a view; try wrapping it in a control first. Returning without completing...")
-		return
 
-	_set_owners(view, view)
-	var scene = PackedScene.new()
-	if scene.pack(view) == OK:
-		var error = ResourceSaver.save(scene, filepath)
-		if error != OK:
-			push_error("An error occurred while saving the scene to disk: %s." % error)
-		else:
-			EditorInterface.reload_scene_from_path(filepath)
-
-func _set_owners(ctrl: Node, owner: Node) -> void:
-	for child in ctrl.get_children():
-		child.owner = owner
-		_set_owners(child, owner)
-
-#class ControlBinding extends RefCounted:
-	#var _prop_name: String
-	#var _type: BindingType
-	#var _ctx: Variant
-	#var _property: String
+		
+#enum BindingType { OneTime, OneWay, TwoWay }
+#func bindable(variable_name: String, binding_type: BindingType) -> ControlBinding:
+	#var binding = ControlBinding.new(variable_name, binding_type)
+	#_bindings.push_back(binding)
+	#return binding
 	#
-	#func _init(view_property_name: String, binding_type: BindingType, data_context: Variant, data_property_name: String):
-		#_prop_name = view_property_name
+#
+#class ControlBinding extends RefCounted:
+	#var _type: BindingType
+	#var _variable: String
+	#
+	#func _init(variable_name: String, binding_type: BindingType):
 		#_type = binding_type
-		#_property = data_property_name
-		#_ctx = data_context
+		#_variable = variable_name
+	
