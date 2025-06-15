@@ -113,6 +113,8 @@ class CustomControl extends RefCounted:
 	var constants: Dictionary[String, Variant] = { }
 	var exported_variables: Dictionary[String, Dictionary] = { }
 	var onready_variables: Dictionary[String, Dictionary] = { }
+	var functions: Array[Callable] = []
+	var animations: Array[CustomAnimation] = []
 	
 	#var bindings: Array[ControlBinding] = []
 	
@@ -122,7 +124,15 @@ class CustomControl extends RefCounted:
 	func script_path(path: String) -> CustomControl:
 		s_path = path
 		return self
+		
+	func animation(anim: CustomAnimation) -> CustomControl:
+		animations.push_back(anim)
+		return self
 	
+	func function(callable: Callable) -> CustomControl:
+		functions.push_back(callable)
+		return self
+
 	func add_signal(signal_name: String, signal_args: Array[String]) -> CustomControl:
 		signals[signal_name] = signal_args
 		return self
@@ -315,7 +325,7 @@ class CustomControl extends RefCounted:
 		return node
 	
 	func _must_generate(child: CustomControl) -> bool:
-		return not (child.callables.is_empty() and child.signals.is_empty() and child.constants.is_empty() and child.variables.is_empty() and child.exported_variables.is_empty() and child.onready_variables.is_empty())
+		return not (child.callables.is_empty() and child.functions.is_empty() and child.animations.is_empty() and child.signals.is_empty() and child.constants.is_empty() and child.variables.is_empty() and child.exported_variables.is_empty() and child.onready_variables.is_empty())
 	
 	func _generate_script(ctrl: CustomControl, built_node: Control) -> void:
 		var script = GDScript.new()
@@ -390,49 +400,99 @@ class CustomControl extends RefCounted:
 		if previous_size != script.source_code.length():
 			script.source_code += "\n"
 
-		script.source_code += READY_CODE
+		if not ctrl.callables.is_empty():
+			script.source_code += READY_CODE
+			
+			for callable in ctrl.callables:
+				script.source_code += CALLABLE_CONNECT_CODE % [callable.sig, callable.function.get_method()]
+			
+			script.source_code += "\n\n"
+			
+			for callable in ctrl.callables:
+				if callable.function:
+					var obj = callable.function.get_object()
+					if obj:
+						var scp = obj.get_script()
+						if scp.has_source_code():
+							var src = scp.source_code
+							var method = callable.function.get_method()
+							var method_idx = src.find("func %s" % method)
+							if method_idx != -1:
+								var new_line_idx = src.find("\n", method_idx)
+								var end_idx = -1
+								var range = range(method_idx, src.length())
+								for code_idx in range(method_idx, src.length()):
+									if src[code_idx] == "\n":
+										var next_char_idx = code_idx + 1
+										if next_char_idx < src.length():
+											var next_char = src[next_char_idx]
+											if next_char != "\t":
+												end_idx = next_char_idx
+												break
+										else:
+											end_idx = code_idx
+											
+								if end_idx != -1:
+									var method_str = src.substr(method_idx, end_idx - method_idx)
+									var sub_method = NEW_METHOD_CODE % method_str
+									
+									sub_method = _replace_ref("raw_code", sub_method)
+					
+									script.source_code += sub_method
+					script.source_code += "\n"
+	
+		if not ctrl.functions.is_empty():
+			for callable in ctrl.functions:
+				if callable.is_valid():
+					var obj = callable.get_object()
+					if obj:
+						var scp = obj.get_script()
+						if scp.has_source_code():
+							var src = scp.source_code
+							var method = callable.get_method()
+							var method_idx = src.find("func %s" % method)
+							if method_idx != -1:
+								var new_line_idx = src.find("\n", method_idx)
+								var end_idx = -1
+								var range = range(method_idx, src.length())
+								for code_idx in range(method_idx, src.length()):
+									if src[code_idx] == "\n":
+										var next_char_idx = code_idx + 1
+										if next_char_idx < src.length():
+											var next_char = src[next_char_idx]
+											if next_char != "\t":
+												end_idx = next_char_idx
+												break
+										else:
+											end_idx = code_idx
+											
+								if end_idx != -1:
+									var method_str = src.substr(method_idx, end_idx - method_idx)
+									var sub_method = NEW_METHOD_CODE % method_str
+									
+									sub_method = _replace_ref("raw_code", sub_method)
+					
+									script.source_code += sub_method
+							else:
+								print("Could not find function to copy.")
+						else:
+							print("Scp didn't have source code...?")
+					else:
+						print("Object didn't exist...?")
+				else:
+					print("Callable wasn't valid...?")
+									
+			script.source_code += "\n\n"
 		
-		for callable in ctrl.callables:
-			script.source_code += CALLABLE_CONNECT_CODE % [callable.sig, callable.function.get_method()]
-		
-		script.source_code += "\n\n"
-		
-		for callable in ctrl.callables:
-			if callable.function:
-				var obj = callable.function.get_object()
-				if obj:
-					var scp = obj.get_script()
-					if scp.has_source_code():
-						var src = scp.source_code
-						var method = callable.function.get_method()
-						var method_idx = src.find("func %s" % method)
-						if method_idx != -1:
-							var new_line_idx = src.find("\n", method_idx)
-							var end_idx = -1
-							var range = range(method_idx, src.length())
-							for code_idx in range(method_idx, src.length()):
-								if src[code_idx] == "\n":
-									var next_char_idx = code_idx + 1
-									if next_char_idx < src.length():
-										var next_char = src[next_char_idx]
-										if next_char != "\t":
-											end_idx = next_char_idx
-											break
-									else:
-										end_idx = code_idx
-										
-							if end_idx != -1:
-								var method_str = src.substr(method_idx, end_idx - method_idx)
-								var sub_method = NEW_METHOD_CODE % method_str
-								
-								sub_method = _replace_ref("raw_code", sub_method)
-				
-								script.source_code += sub_method
-		
+		if not ctrl.animations.is_empty():
+			for anim in ctrl.animations:
+				script.source_code += anim.get_animation_script()
+				script.source_code += "\n"
 		script.source_code += "\n\n"
 		
 		if FileAccess.file_exists(ctrl.s_path):
-			push_warning("Overwriting script at path %s" % ctrl.s_path)
+			pass
+			#push_warning("Overwriting script at path %s" % ctrl.s_path)
 		
 		var result = ResourceSaver.save(script, ctrl.s_path)
 		if result != OK:
@@ -450,7 +510,47 @@ class CustomControl extends RefCounted:
 			
 		return in_str
 		
+class CustomAnimation extends RefCounted:
+	var property: String
+	var by_amount
+	var to_value
+	var duration: float
+	var easing: String
+	var trans: String
+	var relative_to_control: String
+	var anim_func_name: String
+	
+	const SCRIPT_DEFINITION = "func %s() -> void:\n" + \
+							  "\tvar tween = create_tween()\n" + \
+							  "\ttween.set_ease(%s)\n" + \
+							  "\ttween.set_trans(%s)\n" + \
+							  "\ttween.tween_property(%s, %s, %s, %s)\n"
+
+	func _init(animation_function_name: String, animated_property: String, over_time: float = 1.0, ease: String = "EASE_IN_OUT", transi: String = "TRANS_LINEAR"):
+		anim_func_name = animation_function_name
+		property = animated_property
+		duration = over_time
+		easing = ease
+		trans = transi
+	
+	func targeting(control_unique_name: String) -> CustomAnimation:
+		relative_to_control = control_unique_name
+		return self
+	
+	func by(amount) -> CustomAnimation:
+		by_amount = var_to_str(amount)
+		return self
+	
+	func to(value) -> CustomAnimation:
+		to_value = var_to_str(value)
 		
+		return self
+	
+	func get_animation_script() -> String:
+		var result = SCRIPT_DEFINITION % [anim_func_name, "Tween.EaseType.%s" % easing, "Tween.TransitionType.%s" % trans, "%" + relative_to_control if not relative_to_control.is_empty() else "self",
+										  "\"%s\"" % property, "%s" % to_value if to_value else ("get(\"%s\") + %s" % [property, by_amount]), str(duration)]
+				
+		return result
 class CustomArray extends CustomControl:
 	var values: Array[CustomControl] = []
 	

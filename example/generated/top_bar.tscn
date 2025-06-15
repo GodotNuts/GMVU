@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3 uid="uid://dr0v0ckp53kac"]
+
+[ext_resource type="Script" uid="uid://dt4pm6okoni38" path="res://example/custom_unrelated_control.gd" id="1_bbgu8"]
+[ext_resource type="Script" uid="uid://bq55rjtu7an1b" path="res://example/generated/some_other_generated_button.gd" id="2_q788i"]
+
+[node name="TopBarButtons" type="HBoxContainer"]
+anchor_right = 1.0
+alignment = 1
+
+[node name="Control" type="Control" parent="."]
+layout_mode = 2
+script = ExtResource("1_bbgu8")
+
+[node name="SomeButton" type="Button" parent="."]
+layout_mode = 2
+text = "Some Button"
+script = ExtResource("2_q788i")

@@ -1,15 +1,16 @@
-[gd_scene load_steps=7 format=3 uid="uid://db3o7f2u41654"]
+[gd_scene load_steps=8 format=3 uid="uid://db3o7f2u41654"]
 
 [ext_resource type="Script" uid="uid://cxjvbabwnq87s" path="res://example/main_menu.gd" id="1_adrb5"]
-[ext_resource type="Script" uid="uid://dqdmeor0063wy" path="res://example/custom_unrelated_control.gd" id="2_lvcrm"]
+[ext_resource type="Script" uid="uid://dt4pm6okoni38" path="res://example/custom_unrelated_control.gd" id="2_lvcrm"]
 [ext_resource type="Script" uid="uid://f0jabyrbf7hk" path="res://example/player_name_input.gd" id="2_opv1q"]
-[ext_resource type="Script" uid="uid://biwtvykmabj5a" path="res://example/generated/some_other_generated_button.gd" id="3_4rybk"]
-[ext_resource type="Script" uid="uid://bw23gr2valvj7" path="res://example/generated/button_menu.gd" id="5_d35ml"]
-[ext_resource type="Script" uid="uid://dcs44st2ggp6y" path="res://example/generated/generated_button.gd" id="6_mvr3e"]
+[ext_resource type="Script" uid="uid://bq55rjtu7an1b" path="res://example/generated/some_other_generated_button.gd" id="3_4rybk"]
+[ext_resource type="Script" uid="uid://c3ftlvf4acjfv" path="res://example/generated/menu_items.gd" id="4_d35ml"]
+[ext_resource type="Script" uid="uid://hdqvh1q3sp15" path="res://example/generated/button_menu.gd" id="5_d35ml"]
+[ext_resource type="Script" uid="uid://bmau26unhr7cb" path="res://example/generated/generated_button.gd" id="6_mvr3e"]
 
 [node name="UI" type="Control"]
 layout_mode = 3
-anchors_preset = 0
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 script = ExtResource("1_adrb5")
@@ -36,12 +37,14 @@ anchor_right = 0.5
 anchor_bottom = 0.5
 grow_horizontal = 2
 alignment = 1
+script = ExtResource("4_d35ml")
 
 [node name="Label" type="Label" parent="MenuItems"]
 layout_mode = 2
 text = "Player Name:"
 
 [node name="PlayerNameInput" type="LineEdit" parent="MenuItems"]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 2
 size_flags_horizontal = 4

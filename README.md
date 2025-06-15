@@ -39,6 +39,8 @@ I'm considering the following features, and am intending to try to implement the
 4. Fix for generated script files needing to be blown away before re-generating them; seems the script editor is caching the files, and I need to blow away that cache?
 
 # History
+Jun. 15, 2025 - Added ability to add custom animations to your UI controls through tweens created with .animation() modifier, see example for more
+              - Added ability to just add functions from generator scripts directly to your generated scripts
 Jun. 13, 2025 - Added raw_code() modifier which allows you to reference raw code from the destination script when generating a script
               - Added ability to fully embed generators, including any scripts they generate
               - Added ability to more or less fully generate any scripts you wish through modifiers to the node

@@ -7,9 +7,13 @@ const MENU_BUTTONS = [null, { name = "GoButton", text = "Go!" }, null, { name = 
 
 func view() -> CustomControl:
 	return control().named("UI").anchors(FULL_RECT).script_path("res://example/main_menu.gd").embed(TopBarGenerator.new()).children([
-		vbox().named("MenuItems").align(BOX_A_CENTER).grow_h(GROW_BOTH).anchors(CENTER).children([
+		vbox().named("MenuItems")
+			.script_path("res://example/generated/menu_items.gd")
+			.function(_ready)
+			.animation(CustomAnimation.new("animate_player_input", "global_position").by(Vector2(20, 20)).targeting("PlayerNameInput"))
+			.align(BOX_A_CENTER).grow_h(GROW_BOTH).anchors(CENTER).children([
 			label("Player Name:"),
-			line_edit().named("PlayerNameInput").placeholder_text("Player name").h_size(SHRINK_CENTER).min_size(200, 20).script_path("res://example/player_name_input.gd"),
+			line_edit().named("PlayerNameInput").unique(true).placeholder_text("Player name").h_size(SHRINK_CENTER).min_size(200, 20).script_path("res://example/player_name_input.gd"),
 			vbox().named("Buttons").v_size(SHRINK_BEGIN).align(BOX_A_BEGIN).min_size(100, 120).script_path("res://example/generated/button_menu.gd").hook(_some_signal_fired, "%BackButton.some_signal").children([
 				for_each(MENU_BUTTONS,
 					func(_idx, val):
@@ -38,8 +42,5 @@ func _on_button_pressed() -> void:
 func _some_signal_fired(to_print: String) -> void:
 	print(to_print)
 
-#func function(value: String):
-	#return value
-	#
-#func signal_ref(value: String):
-	#return value
+func _ready() -> void:
+	raw_code("animate_player_input()")
