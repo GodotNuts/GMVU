@@ -1,4 +1,4 @@
-# Copyright (c) 2025-present Diurnal Productions, LLC
+### Copyright (c) 2025-present Diurnal Productions, LLC
 
 # GMVU
 A DSL for GDScript mimicking SwiftUI and other model-view-update-style languages
@@ -11,19 +11,19 @@ A DSL for GDScript mimicking SwiftUI and other model-view-update-style languages
 5. In export_path(), make sure to return the path to the file, including the file name, but excluding the .tscn value. It will add that automatically. See the example for more.
 
 # Some Vital Notes
-## In order to run the example, navigate to the example_generator_main_menu.gd file in the script editor and go to the File menu, then tap on Run near the bottom.
+### In order to run the example, navigate to the example_generator_main_menu.gd file in the script editor and go to the File menu, then tap on Run near the bottom.
 
-## In order to actually generate a file, you have to go to the script in which you've created the generator and run it, with one caveat being if you have a higher-level node that generates lower-level nodes and scripts through embedding, you only have to run the top-level node generator. There are shortcuts to do so, but you can also do so from the File menu in the Script Editor, where it will also show you the shortcut.
+### In order to actually generate a file, you have to go to the script in which you've created the generator and run it, with one caveat being if you have a higher-level node that generates lower-level nodes and scripts through embedding, you only have to run the top-level node generator. There are shortcuts to do so, but you can also do so from the File menu in the Script Editor, where it will also show you the shortcut.
 
-## When you add callables, variables, constants, unique_variables, exported variables, or onready variables to your script, it will forcibly overwrite the script that already exists, so be wary.
+### When you add callables, variables, constants, unique_variables, exported variables, or onready variables to your script, it will forcibly overwrite the script that already exists, so be wary.
 
-## When using this, be careful about directly using the exact scenes that are generated. It is better to generate the scenes in a separate folder, and then move them to where you want. The reason for that is that it *will* blow them away and rewrite them. If you're just iterating quickly, that's generally fine, but if you have stuff like a script and signal connections created or edits to the scenes directly, all those will be lost, if you've kept them all in the same folder after generation and not updated their names or anything.
+### When using this, be careful about directly using the exact scenes that are generated. It is better to generate the scenes in a separate folder, and then move them to where you want. The reason for that is that it *will* blow them away and rewrite them. If you're just iterating quickly, that's generally fine, but if you have stuff like a script and signal connections created or edits to the scenes directly, all those will be lost, if you've kept them all in the same folder after generation and not updated their names or anything.
 
-## I recommend "tearing away" the Script Editor when working with this plugin. In order to do so, there's a button in the top right of the Script Editor that looks sorta like a window on top of another window - click that button. When you do so, the Script Editor will pop out, and you can put the Scene Tree Editor and 2D view to the left of the current script, have the file that the script generates open, and just run the script; it will automatically update the view whenever you do so.
+### I recommend "tearing away" the Script Editor when working with this plugin. In order to do so, there's a button in the top right of the Script Editor that looks sorta like a window on top of another window - click that button. When you do so, the Script Editor will pop out, and you can put the Scene Tree Editor and 2D view to the left of the current script, have the file that the script generates open, and just run the script; it will automatically update the view whenever you do so.
 
-## If you're going to apply your own scripts with the script_path() modifier, it is best to handle connections to signals directly in your _ready() function, if you have not added any other script changes in the generator. That way, when the generator blows away your view, it will retain those connections; otherwise, anything connected in the editor will simply be erased, and you'll have to do them all over again.
+### If you're going to apply your own scripts with the script_path() modifier, it is best to handle connections to signals directly in your _ready() function, if you have not added any other script changes in the generator. That way, when the generator blows away your view, it will retain those connections; otherwise, anything connected in the editor will simply be erased, and you'll have to do them all over again.
 
-## When using this addon, if you make changes to a script via the generator interface, you *must* delete the associated generated script file(s) in order to see the changes. I'm working on a fix for this, but have not yet figured it out.
+### When using this addon, if you make changes to a script via the generator interface, you *must* delete the associated generated script file(s) in order to see the changes. I'm working on a fix for this, but have not yet figured it out.
 
 
 # Testing
